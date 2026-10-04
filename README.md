@@ -1,6 +1,15 @@
 # SPINE-dots
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-brightgreen.svg)](LICENSE)
+![Node](https://img.shields.io/badge/node-%E2%89%A520-brightgreen)
+![runtime deps](https://img.shields.io/badge/runtime%20deps-0-brightgreen)
+![governance for](https://img.shields.io/badge/governance%20for-CopilotKit%20Dots-35d6c6)
+![self-hosted](https://img.shields.io/badge/self--hosted-yes-2cc9b0)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-blue.svg)](adapters/opendots.md)
+
 **The open-source governance layer for [CopilotKit Dots](https://github.com/CopilotKit/OpenDots).**
+
+![SPINE-dots demo — the same payroll action, vanilla OpenDots vs SPINE-dots](media/demo.gif)
 
 OpenDots gives you always-on AI coworkers. SPINE-dots makes them safe to run at scale. It wraps an
 OpenDots runtime with the **Spine's eight governance layers + the Spine Gate**, so every Dot action is
@@ -31,7 +40,7 @@ A **Finance Dot** is told to *"email the Q3 payroll summary to the vendor."*
 Same action. One blind click vs. a risk score, a second opinion, scoped data, a blocked leak, and a
 record no one can quietly edit. **That's the whole product.**
 
-🎬 See [`media/demo.mp4`](media/demo.mp4) for the 60-second walkthrough.
+🎬 The clip above is [`media/demo.gif`](media/demo.gif); the full-quality 1080p version is [`media/demo.mp4`](media/demo.mp4).
 
 ## The eight layers (+ the Gate)
 
