@@ -1,0 +1,18 @@
+{
+  "name": "spine-dots",
+  "version": "0.1.0",
+  "description": "The open-source governance layer for CopilotKit Dots. Wraps an OpenDots runtime with the Spine's eight governance layers + the Spine Gate.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Drew Mattie",
+  "homepage": "https://github.com/drewmattie-code/spine-dots",
+  "repository": { "type": "git", "url": "https://github.com/drewmattie-code/spine-dots" },
+  "keywords": ["ai-agents", "governance", "copilotkit", "opendots", "spine", "ai-safety", "self-hosted", "sovereign-ai"],
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "demo": "node demo/run.mjs",
+    "demo:vanilla": "node demo/run.mjs --vanilla",
+    "gate": "node src/layers/gate.js",
+    "test": "node --test"
+  }
+}

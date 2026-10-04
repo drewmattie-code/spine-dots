@@ -1,0 +1,5 @@
+node_modules/
+.spine-dots-data/
+*.log
+.DS_Store
+.env
