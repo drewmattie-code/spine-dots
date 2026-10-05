@@ -17,10 +17,12 @@ before any action runs it is registered, risk-scored, **data-scoped** (fields ab
 never reach the tool), **egress-checked** against an org allowlist, **policy-gated fail-closed**, and
 written to a hash-chained audit log.
 
-> **Status: v0.2.** The enforcement below (data mediation + DLP, task-type tool grants, egress
-> allowlist, fail-closed policy) is real and covered by acceptance tests — run `npm test`. The v1.0
-> hardening roadmap (signed + externally-anchored audit, a declarative policy language, the MCP
-> gateway, published npm packages) is in **[SPEC.md](SPEC.md)**.
+> **Status: v0.4.** The governance below is enforced and covered by **34 acceptance tests** (`npm
+> test`): GDS data mediation + egress DLP, task-type tool grants, an egress allowlist, a **declarative
+> JSON policy engine** (a safe no-`eval` evaluator + Finance/Customer/Engineering starter packs + a
+> dry-run API), and a **signed (Ed25519), Merkle-anchored, fail-closed audit log**. Still on the v1.0
+> roadmap (**[SPEC.md](SPEC.md)**): the MCP gateway, the decision service + approval UI, a reference
+> ACS checker Dot, a Postgres store, and published npm packages.
 
 > A runtime answers *"can my agent do things?"* Governance answers *"should it, this time, and who
 > dropped the ball when it shouldn't have?"* SPINE-dots is the second half.
