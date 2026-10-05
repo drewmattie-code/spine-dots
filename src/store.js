@@ -31,6 +31,15 @@ export function appendLog(name, entry) {
 }
 export function readLog(name) { return load(name, []); }
 
+/** Monotonic sequence (fixes C14 — ids must not be derived from array length). */
+export function nextSeq(name) {
+  const key = `${name}-seq`;
+  const current = load(key, 0);
+  const next = current + 1;
+  persist(key, next);
+  return next;
+}
+
 /** A durable keyed collection (used by ARS registry and DCS handover records). */
 export function collection(name) {
   const data = load(name, {});

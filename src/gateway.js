@@ -76,11 +76,21 @@ export async function handle(action, opts = {}) {
   }
 
   // 6. AGS — policy decision over the whole context, then an immutable log entry.
-  const { decision, reasons: policyReasons } = ags.evaluate({ ...baseCtx, acsBlocking: acsResult.blocking });
-  reasons.push(...policyReasons.map((r) => `AGS: ${r}`));
-  // Dry-run (POST /v1/decide?dryRun=true): return the decision for a "why would this be blocked"
-  // preview without writing to the audit log or executing anything.
-  const logId = opts.dryRun ? null : ags.log({ action, dotId: dot.id, tier: dot.tier, decision, risk, redactions: data.redacted, acs: acsResult.objections, reasons }).id;
+  const policyResult = ags.evaluate({ ...baseCtx, acsBlocking: acsResult.blocking });
+  let decision = policyResult.decision;
+  reasons.push(...policyResult.reasons.map((r) => `AGS: ${r}`));
+  // Dry-run (POST /v1/decide?dryRun=true): preview the decision without writing the log or executing.
+  let logId = null;
+  if (!opts.dryRun) {
+    const auditSink = opts.auditSink ?? ags.log;
+    try {
+      // No acknowledged decision without a durable audit entry — fail closed on write failure.
+      logId = auditSink({ action, dotId: dot.id, tier: dot.tier, decision, risk, redactions: data.redacted, acs: acsResult.objections, reasons })?.id ?? null;
+    } catch (e) {
+      decision = Decision.BLOCK;
+      reasons.push(`AGS: audit log write failed (${e.message}) — failing closed to BLOCK`);
+    }
+  }
 
   const result = finalize(decision, reasons, risk, acsResult.objections, data, logId, action, dot);
   if (opts.dryRun) result.dryRun = true;
