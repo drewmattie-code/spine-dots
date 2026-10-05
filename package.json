@@ -1,6 +1,6 @@
 {
   "name": "spine-dots",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "The open-source governance layer for CopilotKit Dots. Wraps an OpenDots runtime with the Spine's eight governance layers + the Spine Gate.",
   "type": "module",
   "license": "MIT",
@@ -28,5 +28,18 @@
     "demo:vanilla": "node demo/run.mjs --vanilla",
     "gate": "node src/layers/gate.js",
     "test": "node --test"
-  }
+  },
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "src",
+    "adapters",
+    "SPEC.md",
+    "README.md",
+    "LICENSE"
+  ]
 }
