@@ -78,9 +78,13 @@ export async function handle(action, opts = {}) {
   // 6. AGS — policy decision over the whole context, then an immutable log entry.
   const { decision, reasons: policyReasons } = ags.evaluate({ ...baseCtx, acsBlocking: acsResult.blocking });
   reasons.push(...policyReasons.map((r) => `AGS: ${r}`));
-  const logId = ags.log({ action, dotId: dot.id, tier: dot.tier, decision, risk, redactions: data.redacted, acs: acsResult.objections, reasons }).id;
+  // Dry-run (POST /v1/decide?dryRun=true): return the decision for a "why would this be blocked"
+  // preview without writing to the audit log or executing anything.
+  const logId = opts.dryRun ? null : ags.log({ action, dotId: dot.id, tier: dot.tier, decision, risk, redactions: data.redacted, acs: acsResult.objections, reasons }).id;
 
-  return finalize(decision, reasons, risk, acsResult.objections, data, logId, action, dot);
+  const result = finalize(decision, reasons, risk, acsResult.objections, data, logId, action, dot);
+  if (opts.dryRun) result.dryRun = true;
+  return result;
 }
 
 const nullRisk = () => ({ score: 0, band: 'low', factors: [] });

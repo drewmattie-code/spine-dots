@@ -53,6 +53,15 @@ test('C4 end-to-end: the mediated payload handed to the tool contains neither sa
   assert.match(d.reasons.join(' '), /DLP/);
 });
 
+test('dry-run returns the decision without writing an audit entry', async () => {
+  setupFinanceDot();
+  const before = ags.auditLog().length;
+  const d = await handle(RISKY_ACTION, { dryRun: true });
+  assert.equal(d.decision, 'BLOCK');
+  assert.equal(d.dryRun, true);
+  assert.equal(ags.auditLog().length, before); // nothing was logged
+});
+
 test('AGS audit log is hash-chained and verifies intact', async () => {
   setupFinanceDot();
   await handle(RISKY_ACTION);

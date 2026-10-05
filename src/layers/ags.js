@@ -5,38 +5,33 @@
 import { createHash } from 'node:crypto';
 import { appendLog, readLog } from '../store.js';
 import { Decision } from '../types.js';
+import { evaluatePolicy as evalJsonPolicy, DEFAULT_POLICY as JSON_DEFAULT } from '../policy/engine.js';
+import { evalExpr } from '../policy/expr.js';
 
 const LOG = 'ags-log';
 
-// Default policy. Each rule: a `when` predicate over the evaluation context, and an `effect`
-// (allow | require_approval | block). Semantics are FAIL-CLOSED (fixes v0.1's default-ALLOW):
-// deny-overrides, then require_approval, then allow — and NOTHING runs unless a rule explicitly
-// allows it. A rule whose predicate throws is treated as not-matched, so errors never allow.
-export const DEFAULT_POLICY = [
-  // blocks (win over everything — deny-overrides)
-  { id: 'forbid-unregistered',    when: (c) => !c.registered,                                          effect: 'block', reason: 'Dot is not registered/approved in ARS' },
-  { id: 'forbid-undiscovered',    when: (c) => !c.toolAuthorized,                                      effect: 'block', reason: 'tool was not granted by PDS for this task type' },
-  { id: 'forbid-egress-scope',    when: (c) => c.external && c.egressScope !== 'external-allowed',      effect: 'block', reason: 'Dot egress scope is internal-only; external send denied by the Spine Gate grant' },
-  { id: 'block-restricted-egress',when: (c) => c.external && c.peakSensitivity === 'restricted',        effect: 'block', reason: 'restricted data cannot leave the org' },
-  { id: 'block-dlp-hit',          when: (c) => c.dlpHit === true,                                       effect: 'block', reason: 'outbound payload contains classified values above clearance (egress DLP)' },
-  // approvals
-  { id: 'approve-critical',       when: (c) => c.riskBand === 'critical',                               effect: 'require_approval', reason: 'critical risk requires human approval + an ACS check' },
-  { id: 'approve-high',           when: (c) => c.riskBand === 'high',                                   effect: 'require_approval', reason: 'high risk requires human approval + an ACS check' },
-  { id: 'approve-acs-objection',  when: (c) => c.acsBlocking,                                           effect: 'require_approval', reason: 'the ACS checker raised a blocking objection' },
-  // explicit allow (nothing runs without one — default deny)
-  { id: 'allow-authorized',       when: (c) => c.registered && c.toolAuthorized && !(c.external && c.egressScope !== 'external-allowed'), effect: 'allow', reason: 'registered Dot, tool granted by task type, within egress scope' },
-];
+// The default policy is now DECLARATIVE DATA (see src/policy/engine.js) — fail-closed, default-deny,
+// deny-overrides. The gateway evaluates it through the safe expression engine.
+export const DEFAULT_POLICY = JSON_DEFAULT;
 
 export function requiresACS(ctx) {
   return ctx.riskBand === 'high' || ctx.riskBand === 'critical' || (ctx.external && ctx.peakSensitivity !== 'public');
 }
 
-/** Evaluate policy against a context, fail-closed. Returns {decision, reasons[]}. */
+/**
+ * Evaluate policy against a context, fail-closed. Accepts a declarative JSON policy ({version, rules})
+ * — the default — and delegates to the policy engine. Also accepts a legacy array of rules whose
+ * `when` is a function OR an expression string (used by unit tests). Returns {decision, reasons[]}.
+ */
 export function evaluate(ctx, policy = DEFAULT_POLICY) {
+  if (policy && !Array.isArray(policy) && Array.isArray(policy.rules)) {
+    const { decision, reasons } = evalJsonPolicy(ctx, policy);
+    return { decision, reasons };
+  }
   const matched = [];
   for (const rule of policy) {
     let hit = false;
-    try { hit = rule.when(ctx); } catch { hit = false; } // a throwing predicate never allows
+    try { hit = typeof rule.when === 'function' ? rule.when(ctx) : Boolean(evalExpr(rule.when, ctx)); } catch { hit = false; }
     if (hit) matched.push(rule);
   }
   const has = (e) => matched.some((r) => r.effect === e);
