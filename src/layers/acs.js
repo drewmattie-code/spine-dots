@@ -33,16 +33,44 @@ export function check(ctx) {
   return { objections, blocking, checker: 'acs-rule-checker@v1' };
 }
 
+const ADVERSARIAL_PROMPT =
+  'You are an adversarial reviewer with NO shared context with the maker. Find every reason this agent ' +
+  'action should NOT proceed. Be specific. Return {objections:[{severity,note}], blocking:boolean}.';
+
+/** Resolve a promise or reject after `ms` — used to fail closed on a hung checker. */
+function withTimeout(promise, ms) {
+  let t;
+  const timer = new Promise((_, reject) => { t = setTimeout(() => reject(new Error(`checker timeout after ${ms}ms`)), ms); });
+  return Promise.race([Promise.resolve(promise), timer]).finally(() => clearTimeout(t));
+}
+
 /**
- * Production hook: spawn a separate checker Dot (own container, no shared memory) with an adversarial
- * system prompt and have it judge the action. Wire this to your OpenDots runtime. Falls back to
- * rule-based `check` if no client is provided.
+ * Run a separate checker Dot (own context, adversarial prompt, possibly a different model provider)
+ * and judge the action — FAIL CLOSED: a timeout, a throw, or a malformed verdict all become a
+ * blocking objection. The checker's identity is recorded with the verdict. Falls back to the
+ * deterministic reference rule-checker when no client is supplied.
+ * @param {Object} ctx
+ * @param {{id?:string, review:Function}} [client]
+ * @param {{timeoutMs?:number}} [opts]
  */
-export async function llmCheck(ctx, client) {
+export async function llmCheck(ctx, client, opts = {}) {
   if (!client) return check(ctx);
-  const verdict = await client.review({
-    instruction: 'You are an adversarial reviewer. Find every reason this agent action should NOT proceed. Be specific. Return objections with severity.',
-    action: ctx.action, risk: ctx.risk, redactions: ctx.gds?.redacted ?? [],
-  });
-  return { objections: verdict.objections ?? [], blocking: !!verdict.blocking, checker: verdict.checker ?? 'acs-llm-checker' };
+  const timeoutMs = opts.timeoutMs ?? 8000;
+  const checkerId = client.id ?? 'acs-llm-checker';
+  let verdict;
+  try {
+    verdict = await withTimeout(
+      client.review({ instruction: ADVERSARIAL_PROMPT, action: ctx.action, risk: ctx.risk, redactions: ctx.gds?.redacted ?? [] }),
+      timeoutMs,
+    );
+  } catch (e) {
+    const note = /timeout/i.test(e.message)
+      ? `ACS checker timed out after ${timeoutMs}ms — failing closed`
+      : `ACS checker errored (${e.message}) — failing closed`;
+    return { objections: [{ severity: 'critical', note }], blocking: true, checker: checkerId, failedClosed: true };
+  }
+  if (!verdict || typeof verdict !== 'object' || !Array.isArray(verdict.objections) || typeof verdict.blocking !== 'boolean') {
+    return { objections: [{ severity: 'critical', note: 'ACS checker returned a malformed verdict — failing closed' }], blocking: true, checker: verdict?.checker ?? checkerId, failedClosed: true };
+  }
+  return { objections: verdict.objections, blocking: verdict.blocking, checker: verdict.checker ?? checkerId };
 }
