@@ -128,3 +128,8 @@ export function verifyAnchors() {
 }
 
 export function auditLog() { return readLog(LOG); }
+
+/** A portable audit bundle an outside auditor can verify offline (entries + anchors + public key). */
+export function exportAudit() {
+  return { entries: readLog(LOG), anchors: readLog(ANCHORS), publicKey: publicKey() };
+}
