@@ -10,7 +10,6 @@ import { join } from 'node:path';
 import { appendLog, readLog, nextSeq } from '../store.js';
 import { Decision } from '../types.js';
 import { evaluatePolicy as evalJsonPolicy, DEFAULT_POLICY as JSON_DEFAULT } from '../policy/engine.js';
-import { evalExpr } from '../policy/expr.js';
 
 const LOG = 'ags-log';
 const ANCHORS = 'ags-anchors';
@@ -67,29 +66,14 @@ export function requiresACS(ctx) {
 }
 
 /**
- * Evaluate policy against a context, fail-closed. Accepts a declarative JSON policy ({version, rules})
- * — the default — and delegates to the policy engine. Also accepts a legacy array of rules whose
- * `when` is a function OR an expression string (used by unit tests). Returns {decision, reasons[]}.
+ * Evaluate policy against a context, fail-closed. There is ONE enforcement path: this delegates to the
+ * policy engine for every policy shape — a declarative JSON document ({version, rules}) and a legacy
+ * array of rules (string OR function `when`, used by unit tests) alike. That guarantees the always-on
+ * BASE_FORBID rules apply no matter which shape reaches handle(); no policy can route around them.
+ * Returns {decision, reasons[]}.
  */
 export function evaluate(ctx, policy = DEFAULT_POLICY) {
-  if (policy && !Array.isArray(policy) && Array.isArray(policy.rules)) {
-    const { decision, reasons } = evalJsonPolicy(ctx, policy);
-    return { decision, reasons };
-  }
-  const matched = [];
-  for (const rule of policy) {
-    let hit = false;
-    try { hit = typeof rule.when === 'function' ? rule.when(ctx) : Boolean(evalExpr(rule.when, ctx)); } catch { hit = false; }
-    if (hit) matched.push(rule);
-  }
-  const has = (e) => matched.some((r) => r.effect === e);
-  let decision;
-  if (has('block')) decision = Decision.BLOCK;
-  else if (has('require_approval')) decision = Decision.NEEDS_APPROVAL;
-  else if (has('allow')) decision = Decision.ALLOW;
-  else decision = Decision.BLOCK; // default deny
-  const reasons = matched.map((r) => `${r.id}: ${r.reason}`);
-  if (decision === Decision.BLOCK && !has('block')) reasons.push('default-deny: no rule explicitly allowed this action');
+  const { decision, reasons } = evalJsonPolicy(ctx, policy);
   return { decision, reasons };
 }
 

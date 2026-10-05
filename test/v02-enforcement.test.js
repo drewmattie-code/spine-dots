@@ -111,9 +111,12 @@ test('policy fail-closed: deny-overrides — a block rule beats an allow', () =>
   assert.equal(evaluate({}, policy).decision, 'BLOCK');
 });
 
+// `okBase` keeps the always-on BASE_FORBID rules from firing so these isolate the escalation mechanism.
+const okBase = { registered: true, toolAuthorized: true };
+
 test('policy fail-closed: explicit allow with no escalation => ALLOW', () => {
   const policy = [{ id: 'allow-x', when: () => true, effect: 'allow', reason: 'ok' }];
-  assert.equal(evaluate({}, policy).decision, 'ALLOW');
+  assert.equal(evaluate(okBase, policy).decision, 'ALLOW');
 });
 
 test('policy fail-closed: require_approval escalates over allow', () => {
@@ -121,7 +124,7 @@ test('policy fail-closed: require_approval escalates over allow', () => {
     { id: 'allow-x', when: () => true, effect: 'allow', reason: 'ok' },
     { id: 'approve-y', when: () => true, effect: 'require_approval', reason: 'needs human' },
   ];
-  assert.equal(evaluate({}, policy).decision, 'NEEDS_APPROVAL');
+  assert.equal(evaluate(okBase, policy).decision, 'NEEDS_APPROVAL');
 });
 
 test('policy fail-closed: a rule whose predicate throws does not allow (fail closed)', () => {

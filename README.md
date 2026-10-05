@@ -13,11 +13,11 @@
 
 OpenDots gives you always-on AI coworkers. SPINE-dots adds a **governance decision to every Dot tool
 call**. It wraps an OpenDots runtime with the **Spine's eight governance layers + the Spine Gate**, so
-before any action runs it is registered, risk-scored, **data-scoped** (fields above the Dot's clearance
-never reach the tool), **egress-checked** against an org allowlist, **policy-gated fail-closed**, and
-written to a hash-chained audit log.
+before any action runs it is registered, risk-scored, **data-scoped** (named fields from the datasets
+an action declares are stripped before the tool sees them), **egress-checked** against an org
+allowlist, **policy-gated fail-closed**, and written to a hash-chained audit log.
 
-> **Status: v0.11.** Enforced and covered by **74 acceptance tests** (`npm test`): GDS data mediation
+> **Status: v0.12.** Enforced and covered by **76 acceptance tests** (`npm test`): GDS data mediation
 > + egress DLP, task-type tool grants, an egress allowlist, a **declarative JSON policy engine** (safe
 > no-`eval` evaluator + Finance/Customer/Engineering starter packs + dry-run), a **signed (Ed25519),
 > Merkle-anchored, fail-closed audit log** with a standalone **verifier CLI**, the **MCP gateway**, the
@@ -25,10 +25,14 @@ written to a hash-chained audit log.
 > **red-team suite**. Still on the v1.0 roadmap (**[SPEC.md](SPEC.md)**): a hosted decision service +
 > approval UI, a Postgres store adapter, and published npm packages.
 >
-> **Operator note.** Enforcement is only as good as what the action declares. SPINE scopes the
-> `datasets` and `payload` an action names (via the adapter's `mapToolCall`); if an action
-> under-declares its data, SPINE can't protect what it wasn't told about. Map datasets honestly — and
-> an action that declares no data drops to human approval rather than hard-blocking.
+> **Operator note — what stripping does and does not catch.** GDS mediation strips *named fields from
+> the datasets an action declares*. Enforcement is therefore only as good as what the action declares
+> (via the adapter's `mapToolCall`), so data still reaches the tool when:
+> - the value sits under a **different key name** than the dataset's field (e.g. `social` instead of `ssn`);
+> - the value is **pasted into a free-text field** — the DLP scan runs only on egress tools' subject/body, not on arbitrary args;
+> - the action **declares no datasets** — then there is nothing to scope, so it drops to human approval rather than hard-blocking.
+>
+> Map datasets and payloads honestly; SPINE can't protect what it wasn't told about.
 
 > A runtime answers *"can my agent do things?"* Governance answers *"should it, this time, and who
 > dropped the ball when it shouldn't have?"* SPINE-dots is the second half.

@@ -33,17 +33,33 @@ export const BASE_FORBID = Object.freeze([
 ]);
 
 /**
- * Evaluate a JSON policy against a context, fail-closed. The BASE_FORBID rules are always layered in
- * (a pack cannot drop them).
+ * Evaluate a policy against a context, fail-closed. This is the ONE enforcement path: a policy may be
+ * a declarative JSON document ({version, rules}) or a legacy array of rules (whose `when` is an
+ * expression string OR a function, used by unit tests) — both route through here.
+ *
+ * The BASE_FORBID rules ALWAYS apply and cannot be weakened by a policy. They are prepended before the
+ * policy's own rules AND they win any id collision: a policy that reuses a base id (e.g. redefines
+ * `forbid-undiscovered` as an `allow`) cannot suppress the baseline — the base rule is kept and the
+ * policy's same-id rule is dropped. Combined with deny-overrides, an unregistered Dot or an ungranted
+ * tool is always blocked, whatever the policy says.
  * @returns {{decision, ruleIds: string[], reasons: string[], policyVersion}}
  */
 export function evaluatePolicy(ctx, policy) {
-  const base = BASE_FORBID.filter((b) => !policy.rules.some((r) => r.id === b.id));
-  const rules = [...base, ...policy.rules];
+  const policyRules = Array.isArray(policy) ? policy : (policy?.rules ?? []);
+  const version = Array.isArray(policy) ? 'inline' : policy?.version;
+  // BASE_FORBID first + dedup by id keeping the base rule, so a policy can neither drop nor redefine it.
+  const seen = new Set();
+  const rules = [];
+  for (const r of [...BASE_FORBID, ...policyRules]) {
+    if (seen.has(r.id)) continue;
+    seen.add(r.id);
+    rules.push(r);
+  }
   const matched = [];
   for (const r of rules) {
     let hit = false;
-    try { hit = Boolean(evalExpr(r.when, ctx)); } catch { hit = false; } // malformed/eval error never matches
+    // malformed expression / eval error / throwing predicate never matches (fail closed)
+    try { hit = typeof r.when === 'function' ? Boolean(r.when(ctx)) : Boolean(evalExpr(r.when, ctx)); } catch { hit = false; }
     if (hit) matched.push(r);
   }
   const has = (e) => matched.some((r) => r.effect === e);
@@ -54,7 +70,7 @@ export function evaluatePolicy(ctx, policy) {
   else decision = Decision.BLOCK; // default deny
   const reasons = matched.map((r) => `${r.id}: ${r.reason}`);
   if (decision === Decision.BLOCK && !has('block')) reasons.push('default-deny: no rule explicitly allowed this action');
-  return { decision, ruleIds: matched.map((r) => r.id), reasons, policyVersion: policy.version };
+  return { decision, ruleIds: matched.map((r) => r.id), reasons, policyVersion: version };
 }
 
 /** The default declarative policy — the same semantics as v0.2, now as data. */
