@@ -43,7 +43,10 @@ export function classifyRecipient(recipient, allowlist = {}) {
     for (const raw of urls) {
       let a; try { a = new URL(raw); } catch { continue; }
       const ahost = a.hostname.toLowerCase().replace(/\.$/, '');
-      if (host === ahost && u.pathname.startsWith(a.pathname)) return 'internal';
+      // path must match at a boundary — "/in" must not also match "/inbox-evil".
+      const base = a.pathname.endsWith('/') ? a.pathname : a.pathname + '/';
+      const pathOk = u.pathname === a.pathname || u.pathname.startsWith(base);
+      if (host === ahost && pathOk) return 'internal';
     }
     return 'external';
   }

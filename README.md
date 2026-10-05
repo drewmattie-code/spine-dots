@@ -17,7 +17,7 @@ before any action runs it is registered, risk-scored, **data-scoped** (fields ab
 never reach the tool), **egress-checked** against an org allowlist, **policy-gated fail-closed**, and
 written to a hash-chained audit log.
 
-> **Status: v0.10.** Enforced and covered by **70 acceptance tests** (`npm test`): GDS data mediation
+> **Status: v0.11.** Enforced and covered by **74 acceptance tests** (`npm test`): GDS data mediation
 > + egress DLP, task-type tool grants, an egress allowlist, a **declarative JSON policy engine** (safe
 > no-`eval` evaluator + Finance/Customer/Engineering starter packs + dry-run), a **signed (Ed25519),
 > Merkle-anchored, fail-closed audit log** with a standalone **verifier CLI**, the **MCP gateway**, the

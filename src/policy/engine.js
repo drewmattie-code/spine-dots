@@ -25,13 +25,23 @@ export function validatePolicy(policy) {
   return policy;
 }
 
+// Base forbid rules that ALWAYS apply (deny-overrides), layered under any loaded policy so a pack can
+// never weaken the baseline: an unregistered Dot or a tool the Dot wasn't granted is always blocked.
+export const BASE_FORBID = Object.freeze([
+  { id: 'forbid-unregistered', when: '!registered',     effect: 'block', reason: 'Dot is not registered/approved in ARS' },
+  { id: 'forbid-undiscovered', when: '!toolAuthorized', effect: 'block', reason: 'tool was not granted by PDS for this task type' },
+]);
+
 /**
- * Evaluate a JSON policy against a context, fail-closed.
+ * Evaluate a JSON policy against a context, fail-closed. The BASE_FORBID rules are always layered in
+ * (a pack cannot drop them).
  * @returns {{decision, ruleIds: string[], reasons: string[], policyVersion}}
  */
 export function evaluatePolicy(ctx, policy) {
+  const base = BASE_FORBID.filter((b) => !policy.rules.some((r) => r.id === b.id));
+  const rules = [...base, ...policy.rules];
   const matched = [];
-  for (const r of policy.rules) {
+  for (const r of rules) {
     let hit = false;
     try { hit = Boolean(evalExpr(r.when, ctx)); } catch { hit = false; } // malformed/eval error never matches
     if (hit) matched.push(r);

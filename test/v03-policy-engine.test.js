@@ -45,16 +45,18 @@ test('engine: JSON policy — default-deny, deny-overrides, returns matched rule
     { id: 'allow-internal-read', when: 'tool == "read_file" && !external', effect: 'allow', reason: 'internal read' },
     { id: 'block-restricted-egress', when: 'external && "restricted" in dataClasses', effect: 'block', reason: 'no restricted data out' },
   ]};
-  const a = evaluatePolicy({ tool: 'read_file', external: false, dataClasses: ['internal'] }, policy);
+  // base context: registered + tool-granted, so the always-on BASE_FORBID rules don't fire
+  const okBase = { registered: true, toolAuthorized: true };
+  const a = evaluatePolicy({ ...okBase, tool: 'read_file', external: false, dataClasses: ['internal'] }, policy);
   assert.equal(a.decision, 'ALLOW');
   assert.deepEqual(a.ruleIds, ['allow-internal-read']);
   assert.equal(a.policyVersion, 'test-1');
 
-  const b = evaluatePolicy({ tool: 'send_email', external: true, dataClasses: ['restricted'] }, policy);
+  const b = evaluatePolicy({ ...okBase, tool: 'send_email', external: true, dataClasses: ['restricted'] }, policy);
   assert.equal(b.decision, 'BLOCK');
   assert.ok(b.ruleIds.includes('block-restricted-egress'));
 
-  const c = evaluatePolicy({ tool: 'write_file', external: false, dataClasses: [] }, policy);
+  const c = evaluatePolicy({ ...okBase, tool: 'write_file', external: false, dataClasses: [] }, policy);
   assert.equal(c.decision, 'BLOCK'); // nothing matched -> default deny
 });
 

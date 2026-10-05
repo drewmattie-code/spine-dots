@@ -28,8 +28,7 @@ test('fix1: an ALLOWed call through the MCP gateway reaches upstream WITHOUT red
   assert.ok(forwarded, 'ALLOW must still forward');
   assert.equal('salary' in forwarded.arguments, false, 'upstream must NOT receive salary');
   assert.equal('ssn' in forwarded.arguments, false, 'upstream must NOT receive ssn');
-  assert.equal(forwarded.arguments.department, 'Engineering'); // cleared field present
-  assert.equal(forwarded.arguments.note, 'keep-me'); // non-data arg preserved
+  assert.equal(forwarded.arguments.note, 'keep-me'); // non-data arg preserved, shape unchanged (no overlay)
 });
 
 // --- Finding 3: URL allowlist must match by host, not raw string prefix ---

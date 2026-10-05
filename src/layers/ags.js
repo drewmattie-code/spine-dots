@@ -19,7 +19,13 @@ const ANCHORS = 'ags-anchors';
  * Load the Ed25519 signing keypair so it SURVIVES RESTARTS (otherwise a restart regenerates the key
  * and every old signature fails verification — a false tamper alarm). Order: SPINE_AUDIT_PRIVATE_KEY
  * env (PEM), then <dir>/audit-key.pem (generated + persisted on first run), then an ephemeral key for
- * in-memory deployments. In production this is a KMS/HSM handle, not a file.
+ * in-memory deployments.
+ *
+ * ⚠️ SECURITY (reference build): the file-based key lives in the SAME directory as the log, so anyone
+ * who can edit the log can also read the key and re-sign a forged chain. That is acceptable only for a
+ * self-hosted reference build. In PRODUCTION the signing key MUST live in a KMS/HSM the host never
+ * reads (pass it via SPINE_AUDIT_PRIVATE_KEY from a secret manager, or wire a KMS signer), so edit
+ * access to the log does not grant the ability to re-sign.
  */
 export function loadOrCreateKey(dir = process.env.SPINE_DATA_DIR || null) {
   if (process.env.SPINE_AUDIT_PRIVATE_KEY) {
