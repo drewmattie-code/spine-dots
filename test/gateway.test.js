@@ -36,9 +36,21 @@ test('a benign in-scope action is allowed', async () => {
     id: 'reader-dot', name: 'Reader', owner: 'ops@acme.corp', approved: true, tier: Tier.PRODUCTION,
     toolClasses: [ToolClass.READ], clearance: Sensitivity.INTERNAL, egressScope: 'internal-only',
   });
-  const d = await handle({ dotId: 'reader-dot', task: 'summarize the q3 summary', tool: 'read_file', datasets: ['q3_summary.csv'] });
+  const d = await handle({ dotId: 'reader-dot', task: 'summarize the q3 summary', taskType: 'read_report', tool: 'read_file', datasets: ['q3_summary.csv'] });
   assert.equal(d.decision, 'ALLOW');
   assert.equal(d.data.redacted.length, 0);
+});
+
+test('C4 end-to-end: the mediated payload handed to the tool contains neither salary nor ssn', async () => {
+  setupFinanceDot();
+  const d = await handle(RISKY_ACTION);
+  assert.equal(d.decision, 'BLOCK');
+  // what the send_email tool would actually receive — restricted fields stripped by GDS mediation
+  assert.equal('salary' in d.data.mediatedPayload, false);
+  assert.equal('ssn' in d.data.mediatedPayload, false);
+  assert.equal(d.data.mediatedPayload.department, 'Engineering'); // within clearance, kept
+  // and the DLP caught the values pasted into the email body
+  assert.match(d.reasons.join(' '), /DLP/);
 });
 
 test('AGS audit log is hash-chained and verifies intact', async () => {

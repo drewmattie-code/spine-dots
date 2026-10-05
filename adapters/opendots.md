@@ -8,7 +8,7 @@ OpenDots routes every Dot tool call through the CopilotKit runtime (and, for wri
 human-in-the-loop approval card). Call `gateway.handle()` at that moment, before the tool executes:
 
 ```js
-import { handle } from 'spine-dots';
+import { handle } from './src/gateway.js'; // npm package lands at v1.0 (see SPEC.md)
 
 // inside your OpenDots tool-dispatch middleware:
 async function dispatchTool(dot, task, toolName, args) {
@@ -35,7 +35,7 @@ redacted (GDS)**, and the **audit id (AGS)**.
 | Spine layer | What SPINE-dots adds | OpenDots piece it builds on |
 |---|---|---|
 | ARS | registry of every Dot/tool/version, approved + tiered | the per-Dot definitions (register each Dot on create) |
-| PDS | task-scoped tool discovery (the only door) | the per-Dot tool permission matrix (becomes the fallback allowlist) |
+| PDS | task-type-scoped tool grants (not from agent free text) | the per-Dot tool permission matrix (becomes the fallback allowlist) |
 | GDS | definitions + field-level data scoping | the tools that read data (wrap the data-read tools) |
 | CRI | explainable risk score per action | — (new) |
 | ACS | adversarial checker on high-risk actions | spawn a second **checker Dot** via the OpenDots runtime (own container, no shared context) — pass an `acsClient` with a `review()` method |

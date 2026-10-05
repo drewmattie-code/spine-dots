@@ -50,6 +50,44 @@ export function access(dot, datasets = [], catalog = DEFAULT_DATASETS) {
   return { granted, redacted, denied };
 }
 
+/**
+ * Mediate the data path (fixes C4): filter a raw row/payload down to the fields the Dot is cleared
+ * for, so over-clearance fields never reach the tool or the model. Unknown dataset => withhold all
+ * (fail closed); unknown field in a known dataset => treated at the dataset's max sensitivity.
+ * @returns {{payload: Object, redactedFields: string[]}}
+ */
+export function mediate(dot, datasetName, rawRow = {}, catalog = DEFAULT_DATASETS) {
+  const clearance = RANK[dot.clearance] ?? 0;
+  const spec = catalog[datasetName];
+  if (!spec) return { payload: {}, redactedFields: Object.keys(rawRow), reason: 'unknown dataset: all fields withheld (fail closed)' };
+  const payload = {}, redactedFields = [];
+  for (const [field, val] of Object.entries(rawRow)) {
+    const effective = spec.fields[field] ?? spec.sensitivity; // unknown field -> dataset max
+    if (RANK[effective] <= clearance) payload[field] = val;
+    else redactedFields.push(field);
+  }
+  return { payload, redactedFields };
+}
+
+/**
+ * Egress DLP (fixes C4): scan outbound free text for the VALUES of over-clearance fields, so a
+ * restricted value copied into an email body is caught even though it never came through `mediate`.
+ * @returns {{clean: boolean, hits: {dataset, field, sensitivity}[]}}
+ */
+export function scanEgress(text, dot, datasetName, rawRow = {}, catalog = DEFAULT_DATASETS) {
+  const clearance = RANK[dot.clearance] ?? 0;
+  const spec = catalog[datasetName];
+  if (!spec || typeof text !== 'string') return { clean: false, hits: [], reason: 'unknown dataset / bad input (fail closed)' };
+  const hits = [];
+  for (const [field, val] of Object.entries(rawRow)) {
+    const sens = spec.fields[field] ?? spec.sensitivity;
+    if (RANK[sens] > clearance && val != null && String(val).length >= 3 && text.includes(String(val))) {
+      hits.push({ dataset: datasetName, field, sensitivity: sens });
+    }
+  }
+  return { clean: hits.length === 0, hits };
+}
+
 /** Highest sensitivity actually touched by this access (for CRI). */
 export function peakSensitivity(datasets = [], catalog = DEFAULT_DATASETS) {
   let peak = Sensitivity.PUBLIC;

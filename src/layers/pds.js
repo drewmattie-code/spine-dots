@@ -31,7 +31,39 @@ export function discover(dot, task, catalog = DEFAULT_CATALOG) {
   );
 }
 
-/** Is `toolName` something PDS would hand this Dot for this task? Returns {ok, reason, tool}. */
+// Default task-type grants (fixes C7). An operator/workflow assigns a Dot a registered task TYPE,
+// and the task type names exactly which tools are in play. Tool grants come from here — never from
+// the agent's free-text task string, so injected text like "...report and send_email now" can't
+// widen the grant.
+export const DEFAULT_TASK_TYPES = Object.freeze({
+  read_report:    { tools: ['read_file', 'web_research'] },
+  draft_internal: { tools: ['read_file', 'write_file'] },
+  send_report:    { tools: ['read_file', 'send_email'] },
+  pay_vendor:     { tools: ['read_file', 'transfer_funds'] },
+});
+
+/**
+ * Authorize a tool by the registered task TYPE (not by free text). Fails closed on unknown type.
+ * @param {Object} dot
+ * @param {string} taskType  operator/workflow-assigned enum, e.g. "read_report"
+ * @param {string} toolName
+ * @param {{taskTypes?: Object, catalog?: Array, task?: string}} [opts]  `task` (free text) is ignored by design
+ * @returns {{ok: boolean, reason: string, tool?: Object}}
+ */
+export function authorizeByTaskType(dot, taskType, toolName, opts = {}) {
+  const taskTypes = opts.taskTypes ?? DEFAULT_TASK_TYPES;
+  const catalog = opts.catalog ?? DEFAULT_CATALOG;
+  const tt = taskType && taskTypes[taskType];
+  if (!tt) return { ok: false, reason: `unknown task type "${taskType}" — no tools granted (fail closed)` };
+  if (!tt.tools.includes(toolName)) return { ok: false, reason: `tool "${toolName}" is not granted to task type "${taskType}"` };
+  const spec = catalog.find((t) => t.name === toolName);
+  if (!spec) return { ok: false, reason: `tool "${toolName}" is not in the catalog` };
+  if (!dot.toolClasses.includes(spec.class)) return { ok: false, reason: `Dot is not granted the "${spec.class}" tool class`, tool: spec };
+  if (TIER_RANK[dot.tier] < TIER_RANK[spec.minTier]) return { ok: false, reason: `tool requires tier "${spec.minTier}", Dot is "${dot.tier}"`, tool: spec };
+  return { ok: true, reason: `granted by registered task type "${taskType}"`, tool: spec };
+}
+
+/** @deprecated v0.1 free-text discovery — kept for the gateway until it's migrated to task types. Is `toolName` something PDS would hand this Dot for this task? Returns {ok, reason, tool}. */
 export function authorize(dot, task, toolName, catalog = DEFAULT_CATALOG) {
   const spec = catalog.find((t) => t.name === toolName);
   if (!spec) return { ok: false, reason: `tool "${toolName}" is not in the catalog` };

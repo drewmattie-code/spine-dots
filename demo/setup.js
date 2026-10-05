@@ -29,12 +29,20 @@ export function setupFinanceDot() {
   return { dot: ars.lookup(FINANCE_DOT_ID), promotion };
 }
 
+// Org egress allowlist: only acme.corp is inside the org. Pass this to handle() as opts.
+export const DEMO_EGRESS_ALLOWLIST = { domains: ['acme.corp'], urls: [] };
+
 // The action under test: email the Q3 payroll summary to an outside vendor.
+// The Dot's task TYPE legitimately includes send_email (send_report) — so this isn't blocked for
+// "no tool"; it's blocked because the recipient is OUTSIDE the org and the body leaks RESTRICTED
+// values the Dot isn't cleared for. That's the honest demo: a real capability, caught in the act.
 export const RISKY_ACTION = {
   dotId: FINANCE_DOT_ID,
-  task: 'email the Q3 payroll summary to the vendor',
+  task: 'email the Q3 payroll summary to the vendor', // free text — NOT used for grants (C7)
+  taskType: 'send_report',                            // operator-assigned; this is what grants tools
   tool: 'send_email',
   recipient: 'accounts@vendor-supplier.com',
   datasets: ['payroll.csv'],
-  args: { subject: 'Q3 payroll summary', body: '(attached)' },
+  payload: { employee_name: 'Jane Roe', department: 'Engineering', salary: 184000, ssn: '111-22-3333' },
+  args: { subject: 'Q3 payroll summary', body: 'Payroll run total 184000; ref SSN 111-22-3333. See attached.' },
 };
