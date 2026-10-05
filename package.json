@@ -4,7 +4,7 @@
   "description": "The open-source governance layer for CopilotKit Dots. Wraps an OpenDots runtime with the Spine's eight governance layers + the Spine Gate.",
   "type": "module",
   "license": "MIT",
-  "author": "Drew Mattie",
+  "author": "SaaSquach AI Labs (https://saasquach.ai)",
   "homepage": "https://github.com/drewmattie-code/spine-dots",
   "repository": {
     "type": "git",
