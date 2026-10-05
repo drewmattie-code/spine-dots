@@ -88,6 +88,18 @@ export function scanEgress(text, dot, datasetName, rawRow = {}, catalog = DEFAUL
   return { clean: hits.length === 0, hits };
 }
 
+/** The distinct sensitivity classes touched by these datasets (for the policy context, e.g. "restricted" in dataClasses). */
+export function dataClasses(datasets = [], catalog = DEFAULT_DATASETS) {
+  const set = new Set();
+  for (const name of datasets) {
+    const spec = catalog[name];
+    if (!spec) continue;
+    set.add(spec.sensitivity);
+    for (const s of Object.values(spec.fields)) set.add(s);
+  }
+  return [...set];
+}
+
 /** Highest sensitivity actually touched by this access (for CRI). */
 export function peakSensitivity(datasets = [], catalog = DEFAULT_DATASETS) {
   let peak = Sensitivity.PUBLIC;

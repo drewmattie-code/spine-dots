@@ -3,7 +3,7 @@
 // is to find reasons NOT to do it. Here the checker is rule-based so the demo is deterministic and
 // runs offline; `llmCheck` is the hook where a real deployment spawns a separate OpenDots "checker
 // Dot" with no shared context and an adversarial prompt.
-import { ToolClass, Reversibility, isExternal } from '../types.js';
+import { ToolClass, Reversibility } from '../types.js';
 
 /**
  * @param {{action, dot, risk, gds}} ctx
@@ -14,13 +14,13 @@ export function check(ctx) {
   const objections = [];
   const flag = (severity, note) => objections.push({ severity, note });
 
-  if (action.recipient && isExternal(action.recipient))
+  if (ctx.external)
     flag('high', `recipient ${action.recipient} is OUTSIDE the org — confirm this data is cleared to leave`);
 
   if (gds?.redacted?.length)
     flag('high', `this action touches ${gds.redacted.length} field(s) above the Dot's clearance (${gds.redacted.map((r) => `${r.dataset}.${r.field}`).join(', ')}) — GDS redacted them, but the intent to read them is a red flag`);
 
-  if (action.recipient && isExternal(action.recipient) && dot.egressScope === 'internal-only')
+  if (ctx.external && dot.egressScope === 'internal-only')
     flag('critical', `the Dot's Spine-Gate grant is internal-only, yet it is attempting an external send — scope violation`);
 
   if (ctx.toolClass === ToolClass.MONEY && ctx.reversibility === Reversibility.IRREVERSIBLE)

@@ -35,9 +35,17 @@ export function classifyRecipient(recipient, allowlist = {}) {
   const domains = allowlist.domains ?? [];
   const urls = allowlist.urls ?? [];
   if (typeof recipient === 'string' && recipient.includes('://')) {
-    if (urls.some((u) => recipient.startsWith(u))) return 'internal';
-    const host = domainOf(recipient);
-    return host && isAllowedDomain(host, domains) ? 'internal' : 'external';
+    let u; try { u = new URL(recipient); } catch { return 'external'; }
+    const host = u.hostname.toLowerCase().replace(/\.$/, '');
+    if (isAllowedDomain(host, domains)) return 'internal';
+    // Match an allowlisted URL by parsed HOST + path prefix, never raw string prefix — otherwise
+    // "https://hooks.acme.corp" would also approve "https://hooks.acme.corp.evil.com".
+    for (const raw of urls) {
+      let a; try { a = new URL(raw); } catch { continue; }
+      const ahost = a.hostname.toLowerCase().replace(/\.$/, '');
+      if (host === ahost && u.pathname.startsWith(a.pathname)) return 'internal';
+    }
+    return 'external';
   }
   const domain = domainOf(recipient);
   if (!domain) return 'external'; // fail closed on unknown/malformed

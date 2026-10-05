@@ -17,12 +17,18 @@ before any action runs it is registered, risk-scored, **data-scoped** (fields ab
 never reach the tool), **egress-checked** against an org allowlist, **policy-gated fail-closed**, and
 written to a hash-chained audit log.
 
-> **Status: v0.4.** The governance below is enforced and covered by **34 acceptance tests** (`npm
-> test`): GDS data mediation + egress DLP, task-type tool grants, an egress allowlist, a **declarative
-> JSON policy engine** (a safe no-`eval` evaluator + Finance/Customer/Engineering starter packs + a
-> dry-run API), and a **signed (Ed25519), Merkle-anchored, fail-closed audit log**. Still on the v1.0
-> roadmap (**[SPEC.md](SPEC.md)**): the MCP gateway, the decision service + approval UI, a reference
-> ACS checker Dot, a Postgres store, and published npm packages.
+> **Status: v0.10.** Enforced and covered by **70 acceptance tests** (`npm test`): GDS data mediation
+> + egress DLP, task-type tool grants, an egress allowlist, a **declarative JSON policy engine** (safe
+> no-`eval` evaluator + Finance/Customer/Engineering starter packs + dry-run), a **signed (Ed25519),
+> Merkle-anchored, fail-closed audit log** with a standalone **verifier CLI**, the **MCP gateway**, the
+> **Spine Gate conformance suite**, an **ACS checker contract** (timeout → fail closed), and a
+> **red-team suite**. Still on the v1.0 roadmap (**[SPEC.md](SPEC.md)**): a hosted decision service +
+> approval UI, a Postgres store adapter, and published npm packages.
+>
+> **Operator note.** Enforcement is only as good as what the action declares. SPINE scopes the
+> `datasets` and `payload` an action names (via the adapter's `mapToolCall`); if an action
+> under-declares its data, SPINE can't protect what it wasn't told about. Map datasets honestly — and
+> an action that declares no data drops to human approval rather than hard-blocking.
 
 > A runtime answers *"can my agent do things?"* Governance answers *"should it, this time, and who
 > dropped the ball when it shouldn't have?"* SPINE-dots is the second half.
@@ -100,8 +106,10 @@ const decision = await handle({
 // decision.card      -> enriched approval card (risk, objections, redactions, audit id)
 ```
 
-Wiring it into a real OpenDots deployment is one middleware hook — see
-[`adapters/opendots.md`](adapters/opendots.md).
+Wire it into a real OpenDots deployment via the tool-dispatch hook (and a data-access hook for GDS
+mediation) — see [`adapters/opendots.md`](adapters/opendots.md). To put SPINE in front of **any
+MCP-speaking runtime** (Claude, OpenAI Agents SDK, LangGraph) as a govern-then-forward proxy, see
+[`adapters/mcp.md`](adapters/mcp.md).
 
 ## Quickstart
 

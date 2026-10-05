@@ -27,8 +27,18 @@ export function createMcpGateway(cfg = {}) {
       const spine = { decision: decision.decision, reasons: decision.reasons, auditId: decision.logId, risk: decision.risk };
 
       if (decision.decision === 'ALLOW') {
-        const result = await upstream(toolCall);
-        // attach the governance receipt alongside the tool's own result
+        // Forward the MEDIATED payload, never the raw call: strip fields GDS redacted and overlay the
+        // cleared payload, so the upstream tool never receives over-clearance data (even if the agent
+        // tried to pass it in the arguments).
+        const mediated = decision.data?.mediatedPayload ?? {};
+        const rawPayload = action.payload ?? {};
+        const redactedKeys = Object.keys(rawPayload).filter((k) => !(k in mediated));
+        const args = { ...(toolCall.arguments ?? {}) };
+        for (const k of redactedKeys) delete args[k];
+        Object.assign(args, mediated);
+        const forwardedCall = { ...toolCall, arguments: args };
+
+        const result = await upstream(forwardedCall);
         return (result && typeof result === 'object') ? { ...result, spine } : { content: [{ type: 'text', text: String(result) }], spine };
       }
 

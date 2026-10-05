@@ -1,7 +1,7 @@
 // CRI — Composite Risk Index.
 // A credit score that shows its work. Not one mystery number: the parts that made it. Scores an
 // action 0-100 from tool class, data sensitivity, reversibility, external egress, and blast radius.
-import { ToolClass, Sensitivity, Reversibility, isExternal } from '../types.js';
+import { ToolClass, Sensitivity, Reversibility } from '../types.js';
 
 const TOOL_WEIGHT = {
   [ToolClass.READ]: 2, [ToolClass.RESEARCH]: 6, [ToolClass.WRITE]: 15,
@@ -27,7 +27,7 @@ export function score(a) {
   add(`tool class: ${a.toolClass}`, TOOL_WEIGHT[a.toolClass] ?? 10);
   add(`data sensitivity: ${a.sensitivity}`, SENS_WEIGHT[a.sensitivity] ?? 0);
   add(`reversibility: ${a.reversibility}`, REV_WEIGHT[a.reversibility] ?? 0);
-  if (a.recipient && isExternal(a.recipient)) add('external egress (leaves the org)', 18);
+  if (a.external) add('external egress (leaves the org)', 18); // authoritative flag from the egress classifier
   if (a.blastRadius && a.blastRadius > 1) add(`blast radius x${a.blastRadius}`, Math.min(15, a.blastRadius * 2));
 
   const score = Math.min(100, factors.reduce((s, f) => s + f.points, 0));

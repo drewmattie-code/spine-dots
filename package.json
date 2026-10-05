@@ -1,6 +1,6 @@
 {
   "name": "spine-dots",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "The open-source governance layer for CopilotKit Dots. Wraps an OpenDots runtime with the Spine's eight governance layers + the Spine Gate.",
   "type": "module",
   "license": "MIT",

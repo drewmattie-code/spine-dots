@@ -4,7 +4,9 @@
 // re-sign without the private key). Policy decides what opens, FAIL-CLOSED (default-deny, deny-
 // overrides). (In production the signing key lives in a KMS/HSM and anchors go to an external witness
 // — RFC 3161 TSA / transparency log / WORM bucket; see SPEC.md. The core ships a reference signer.)
-import { createHash, generateKeyPairSync, sign as cryptoSign, verify as cryptoVerify } from 'node:crypto';
+import { createHash, generateKeyPairSync, createPublicKey, createPrivateKey, sign as cryptoSign, verify as cryptoVerify } from 'node:crypto';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { appendLog, readLog, nextSeq } from '../store.js';
 import { Decision } from '../types.js';
 import { evaluatePolicy as evalJsonPolicy, DEFAULT_POLICY as JSON_DEFAULT } from '../policy/engine.js';
@@ -13,8 +15,29 @@ import { evalExpr } from '../policy/expr.js';
 const LOG = 'ags-log';
 const ANCHORS = 'ags-anchors';
 
-// Reference signing key. One per process; in production this is a KMS/HSM handle the host never sees.
-const { publicKey: AUDIT_PUBLIC_KEY, privateKey: AUDIT_PRIVATE_KEY } = generateKeyPairSync('ed25519');
+/**
+ * Load the Ed25519 signing keypair so it SURVIVES RESTARTS (otherwise a restart regenerates the key
+ * and every old signature fails verification — a false tamper alarm). Order: SPINE_AUDIT_PRIVATE_KEY
+ * env (PEM), then <dir>/audit-key.pem (generated + persisted on first run), then an ephemeral key for
+ * in-memory deployments. In production this is a KMS/HSM handle, not a file.
+ */
+export function loadOrCreateKey(dir = process.env.SPINE_DATA_DIR || null) {
+  if (process.env.SPINE_AUDIT_PRIVATE_KEY) {
+    const privateKey = createPrivateKey(process.env.SPINE_AUDIT_PRIVATE_KEY);
+    return { publicKey: createPublicKey(privateKey), privateKey };
+  }
+  if (!dir) return generateKeyPairSync('ed25519');
+  const file = join(dir, 'audit-key.pem');
+  if (existsSync(file)) {
+    const privateKey = createPrivateKey(readFileSync(file, 'utf8'));
+    return { publicKey: createPublicKey(privateKey), privateKey };
+  }
+  const kp = generateKeyPairSync('ed25519');
+  try { mkdirSync(dir, { recursive: true }); writeFileSync(file, kp.privateKey.export({ type: 'pkcs8', format: 'pem' }), { mode: 0o600 }); } catch { /* fall back to ephemeral */ }
+  return kp;
+}
+
+const { publicKey: AUDIT_PUBLIC_KEY, privateKey: AUDIT_PRIVATE_KEY } = loadOrCreateKey();
 export const publicKey = () => AUDIT_PUBLIC_KEY.export({ type: 'spki', format: 'pem' });
 
 const sha256 = (obj) => createHash('sha256').update(JSON.stringify(obj)).digest('hex');

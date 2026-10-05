@@ -65,18 +65,28 @@ export async function handle(action, opts = {}) {
   }
 
   // 5. CRI — explainable risk score.
-  const risk = cri.score({ toolClass, sensitivity: peakSensitivity, reversibility: action.reversibility ?? inferReversibility(toolClass), recipient: action.recipient, blastRadius: action.blastRadius });
+  const risk = cri.score({ toolClass, sensitivity: peakSensitivity, reversibility: action.reversibility ?? inferReversibility(toolClass), external, blastRadius: action.blastRadius });
 
   // 6. ACS — adversarial check when the action is high-risk or externally-facing with sensitive data.
-  const baseCtx = { registered, toolAuthorized: auth.ok, external, egressScope: dot.egressScope, peakSensitivity, riskBand: risk.band, dlpHit };
+  // Rich, typed policy context so declarative policies (incl. the starter packs) can reference the
+  // tool, the data classes touched, the amount, and record count — not just the base flags.
+  const baseCtx = {
+    registered, toolAuthorized: auth.ok, external, egressScope: dot.egressScope,
+    peakSensitivity, riskBand: risk.band, dlpHit,
+    tool: action.tool,
+    dataClasses: gds.dataClasses(action.datasets ?? [], opts.datasets),
+    recipientClass: external ? 'external' : 'internal',
+    amount: action.args?.amount,
+    recordCount: action.recordCount ?? action.args?.recordCount,
+  };
   let acsResult = { objections: [], blocking: false, checker: null };
   if (ags.requiresACS(baseCtx)) {
-    acsResult = await acs.llmCheck({ action, dot, risk, gds: data, toolClass, reversibility: action.reversibility ?? inferReversibility(toolClass) }, opts.acsClient);
+    acsResult = await acs.llmCheck({ action, dot, risk, gds: data, toolClass, external, reversibility: action.reversibility ?? inferReversibility(toolClass) }, opts.acsClient);
     for (const o of acsResult.objections) reasons.push(`ACS[${o.severity}]: ${o.note}`);
   }
 
   // 6. AGS — policy decision over the whole context, then an immutable log entry.
-  const policyResult = ags.evaluate({ ...baseCtx, acsBlocking: acsResult.blocking });
+  const policyResult = ags.evaluate({ ...baseCtx, acsBlocking: acsResult.blocking }, opts.policy);
   let decision = policyResult.decision;
   reasons.push(...policyResult.reasons.map((r) => `AGS: ${r}`));
   // Dry-run (POST /v1/decide?dryRun=true): preview the decision without writing the log or executing.
