@@ -24,8 +24,13 @@ export function setupFinanceDot() {
     egressScope: 'internal-only',          // the Gate only cleared it to email INSIDE the org
   });
 
-  // Promote sandbox -> production through the Spine Gate.
-  const promotion = gate.promote(FINANCE_DOT_ID, Tier.PRODUCTION);
+  // Promote sandbox -> production through the Spine Gate's conformance suite: passing eval + red-team
+  // pass rates, and a named EGRESS grant with an approver and a future expiry.
+  const promotion = gate.promote(FINANCE_DOT_ID, Tier.PRODUCTION, {
+    evalPassRate: 0.96,
+    redTeamPassRate: 1.0,
+    grants: [{ toolClass: ToolClass.EGRESS, approver: 'cfo@acme.corp', expiry: new Date(Date.now() + 90 * 86400000).toISOString() }],
+  });
   return { dot: ars.lookup(FINANCE_DOT_ID), promotion };
 }
 

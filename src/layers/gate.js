@@ -9,8 +9,21 @@ const TIER_RANK = { [Tier.SANDBOX]: 0, [Tier.STAGING]: 1, [Tier.PRODUCTION]: 2 }
 // Tool classes that require an explicit, logged grant to reach a given tier.
 const HIGH_PRIV = [ToolClass.EGRESS, ToolClass.MONEY, ToolClass.ADMIN];
 
-/** Run conformance checks for promoting dotId to targetTier. Returns {ok, checks:[{name,ok,detail}]}. */
-export function check(dotId, targetTier) {
+// Per-tier conformance bar — the riskier the tier, the higher the required pass rates (C8).
+const CONFORMANCE = {
+  [Tier.SANDBOX]:    { minEval: 0,    minRedTeam: 0 },
+  [Tier.STAGING]:    { minEval: 0.80, minRedTeam: 0.90 },
+  [Tier.PRODUCTION]: { minEval: 0.90, minRedTeam: 0.95 },
+};
+
+/**
+ * Run conformance checks for promoting dotId to targetTier.
+ * @param {string} dotId
+ * @param {string} targetTier
+ * @param {{evalPassRate?:number, redTeamPassRate?:number, grants?:{toolClass,approver,expiry}[]}} [evidence]
+ * @returns {{ok, checks:[{name,ok,detail}]}}
+ */
+export function check(dotId, targetTier, evidence = {}) {
   const d = ars.lookup(dotId);
   const checks = [];
   const add = (name, ok, detail) => checks.push({ name, ok, detail });
@@ -24,11 +37,33 @@ export function check(dotId, targetTier) {
   add('data-clearance-set', !!d.clearance, `clearance: ${d.clearance}`);
   add('egress-scope-set', !!d.egressScope, `egress: ${d.egressScope}`);
 
-  // Least privilege: high-privilege tool classes are only allowed at production, and must be an
-  // explicit, named grant (not a leftover sandbox default).
+  // Per-tier eval + red-team pass rates (fail closed when the bar is > 0 and evidence is missing).
+  const bar = CONFORMANCE[targetTier] ?? CONFORMANCE[Tier.SANDBOX];
+  if (bar.minEval > 0) {
+    const ev = evidence.evalPassRate;
+    add('eval-pass-rate', typeof ev === 'number' && ev >= bar.minEval,
+      typeof ev === 'number' ? `${(ev * 100).toFixed(0)}% (bar ${bar.minEval * 100}%)` : 'no eval results provided');
+  }
+  if (bar.minRedTeam > 0) {
+    const rt = evidence.redTeamPassRate;
+    add('red-team-pass-rate', typeof rt === 'number' && rt >= bar.minRedTeam,
+      typeof rt === 'number' ? `${(rt * 100).toFixed(0)}% (bar ${bar.minRedTeam * 100}%)` : 'no red-team results provided');
+  }
+
+  // Least privilege: below production, high-priv tools aren't allowed at all. At production each
+  // high-priv tool class must have a named grant with an approver and a non-expired expiry.
   const highPriv = d.toolClasses.filter((c) => HIGH_PRIV.includes(c));
   if (TIER_RANK[targetTier] >= TIER_RANK[Tier.PRODUCTION]) {
-    add('least-privilege', true, highPriv.length ? `high-priv grants (explicit): ${highPriv.join(', ')}` : 'no high-privilege tools');
+    const grants = evidence.grants ?? [];
+    for (const cls of highPriv) {
+      const g = grants.find((x) => x.toolClass === cls);
+      const inDate = !!(g && g.expiry && new Date(g.expiry).getTime() > Date.now());
+      add(`named-grant:${cls}`, !!(g && g.approver && inDate),
+        !g ? `no named grant for high-priv "${cls}"`
+          : !g.approver ? `grant for "${cls}" has no approver`
+          : !inDate ? `grant for "${cls}" is expired (${g.expiry})`
+          : `approved by ${g.approver}, expires ${g.expiry}`);
+    }
   } else {
     add('least-privilege', highPriv.length === 0, highPriv.length ? `high-priv tools (${highPriv.join(', ')}) not allowed below production` : 'ok');
   }
@@ -37,12 +72,20 @@ export function check(dotId, targetTier) {
   return { ok, checks };
 }
 
-/** Promote if the Dot passes the gate. Returns {promoted, result}. */
-export function promote(dotId, targetTier) {
-  const result = check(dotId, targetTier);
+/** Promote if the Dot passes the gate's conformance suite. Returns {promoted, result}. */
+export function promote(dotId, targetTier, evidence = {}) {
+  const result = check(dotId, targetTier, evidence);
   if (!result.ok) return { promoted: false, result };
   ars.register({ ...ars.lookup(dotId), tier: targetTier, approved: true });
   return { promoted: true, result };
+}
+
+/** Auto-demote a Dot to sandbox + unapproved (on revocation, failed recert, or anomaly breach). */
+export function demote(dotId, reason = 'unspecified') {
+  const d = ars.lookup(dotId);
+  if (!d) return { demoted: false, reason: 'not registered in ARS' };
+  ars.register({ ...d, tier: Tier.SANDBOX, approved: false });
+  return { demoted: true, from: d.tier, reason };
 }
 
 // --- CLI ---  node src/layers/gate.js <check|promote> <dotId> <tier>
