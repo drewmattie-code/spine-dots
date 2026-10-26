@@ -5,20 +5,7 @@
 // happens. One integration covers Claude, the OpenAI Agents SDK, LangGraph, and anything else that
 // speaks MCP, with no per-runtime code. Transport (stdio / HTTP JSON-RPC) wraps this core.
 import { handle } from '../gateway.js';
-
-/** Return a deep clone of `value` with any key in `keys` removed at every depth. Never mutates input. */
-function deepStripKeys(value, keys) {
-  if (Array.isArray(value)) return value.map((v) => deepStripKeys(v, keys));
-  if (value && typeof value === 'object') {
-    const out = {};
-    for (const [k, v] of Object.entries(value)) {
-      if (keys.has(k)) continue;
-      out[k] = deepStripKeys(v, keys);
-    }
-    return out;
-  }
-  return value;
-}
+import { deepStripKeys, stripKeysFor } from '../mediate.js';
 
 /**
  * @param {Object} cfg
@@ -45,10 +32,7 @@ export function createMcpGateway(cfg = {}) {
         // for the declared datasets) at EVERY depth of the arguments — so nested values like
         // arguments.row.ssn are removed, and it works even when the mapping passes no payload. We only
         // remove keys (never add/overlay), so the tool's argument shape is preserved.
-        const stripKeys = new Set((decision.data?.redacted ?? []).map((r) => r.field));
-        const mediated = decision.data?.mediatedPayload ?? {};
-        for (const k of Object.keys(action.payload ?? {})) if (!(k in mediated)) stripKeys.add(k);
-        const forwardedCall = { ...toolCall, arguments: deepStripKeys(toolCall.arguments ?? {}, stripKeys) };
+        const forwardedCall = { ...toolCall, arguments: deepStripKeys(toolCall.arguments ?? {}, stripKeysFor(action, decision)) };
 
         const result = await upstream(forwardedCall);
         return (result && typeof result === 'object') ? { ...result, spine } : { content: [{ type: 'text', text: String(result) }], spine };

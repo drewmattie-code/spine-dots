@@ -1,6 +1,7 @@
 // SPINE-dots public API. `import { handle, createMcpGateway, ... } from 'spine-dots'`.
 export { handle } from './src/gateway.js';
 export { createMcpGateway } from './src/mcp/gateway.js';
+export { governCompletion, createOpenAIProxy } from './src/openai/proxy.js';
 
 // Policy engine (declarative, safe)
 export { evaluatePolicy, validatePolicy, DEFAULT_POLICY, STARTER_PACKS } from './src/policy/engine.js';

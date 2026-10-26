@@ -17,10 +17,11 @@ before any action runs it is registered, risk-scored, **data-scoped** (named fie
 an action declares are stripped before the tool sees them), **egress-checked** against an org
 allowlist, **policy-gated fail-closed**, and written to a hash-chained audit log.
 
-> **Status: v0.12.** Enforced and covered by **76 acceptance tests** (`npm test`): GDS data mediation
+> **Status: v0.13.** Enforced and covered by **91 acceptance tests** (`npm test`): GDS data mediation
 > + egress DLP, task-type tool grants, an egress allowlist, a **declarative JSON policy engine** (safe
 > no-`eval` evaluator + Finance/Customer/Engineering starter packs + dry-run), a **signed (Ed25519),
-> Merkle-anchored, fail-closed audit log** with a standalone **verifier CLI**, the **MCP gateway**, the
+> Merkle-anchored, fail-closed audit log** with a standalone **verifier CLI**, the **MCP gateway**, an
+> **OpenAI-compatible proxy** (Grok, OpenAI, Qwen/Llama via LiteLLM, vLLM or Ollama), the
 > **Spine Gate conformance suite**, an **ACS checker contract** (timeout → fail closed), and a
 > **red-team suite**. Still on the v1.0 roadmap (**[SPEC.md](SPEC.md)**): a hosted decision service +
 > approval UI, a Postgres store adapter, and published npm packages.
@@ -113,7 +114,9 @@ const decision = await handle({
 Wire it into a real OpenDots deployment via the tool-dispatch hook (and a data-access hook for GDS
 mediation) — see [`adapters/opendots.md`](adapters/opendots.md). To put SPINE in front of **any
 MCP-speaking runtime** (Claude, OpenAI Agents SDK, LangGraph) as a govern-then-forward proxy, see
-[`adapters/mcp.md`](adapters/mcp.md).
+[`adapters/mcp.md`](adapters/mcp.md). To govern **any model that speaks the OpenAI tool-call format**
+(Grok, OpenAI, open models behind LiteLLM, vLLM or Ollama), point your app at the proxy in
+[`adapters/openai.md`](adapters/openai.md).
 
 ## Quickstart
 

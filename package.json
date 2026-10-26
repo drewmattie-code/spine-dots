@@ -1,7 +1,7 @@
 {
   "name": "spine-dots",
-  "version": "0.12.0",
-  "description": "The open-source governance layer for CopilotKit Dots. Wraps an OpenDots runtime with the Spine's eight governance layers + the Spine Gate.",
+  "version": "0.13.0",
+  "description": "Open-source governance layer for AI agents: CopilotKit Dots, any MCP runtime, and any OpenAI-compatible model (Grok, OpenAI, open models). The Spine's eight governance layers + the Spine Gate.",
   "type": "module",
   "license": "MIT",
   "author": "SaaSquach AI Labs (https://saasquach.ai)",
@@ -18,7 +18,11 @@
     "spine",
     "ai-safety",
     "self-hosted",
-    "sovereign-ai"
+    "sovereign-ai",
+    "openai",
+    "grok",
+    "mcp",
+    "llm-proxy"
   ],
   "engines": {
     "node": ">=20"
@@ -28,7 +32,8 @@
     "demo:vanilla": "node demo/run.mjs --vanilla",
     "gate": "node src/layers/gate.js",
     "test": "node --test",
-    "verify": "node bin/spine-verify.js"
+    "verify": "node bin/spine-verify.js",
+    "demo:openai": "node demo/openai-proxy.mjs"
   },
   "main": "index.js",
   "exports": {
