@@ -118,7 +118,22 @@ MCP-speaking runtime** (Claude, OpenAI Agents SDK, LangGraph) as a govern-then-f
 (Grok, OpenAI, open models behind LiteLLM, vLLM or Ollama), point your app at the proxy in
 [`adapters/openai.md`](adapters/openai.md).
 
+## Install
+
+```bash
+npm install spine-dots
+```
+
+```js
+import { handle, createMcpGateway, createOpenAIProxy } from 'spine-dots';
+```
+
+The package also installs `spine-verify`, which checks an exported audit log (signatures, hash
+chain and Merkle anchors): `npx spine-verify audit-export.json`.
+
 ## Quickstart
+
+To run the side-by-side demo and the tests, clone the repo:
 
 ```bash
 git clone https://github.com/drewmattie-code/spine-dots
